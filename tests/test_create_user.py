@@ -1,15 +1,18 @@
 import pytest
 import allure
 from data import ERROR_USER_ALREADY_EXISTS, ERROR_MISSING_REQUIRED_FIELD
+from helpers import create_user_payload
 
 
 class TestUserCreation:
     
     @allure.title("Создать уникального пользователя")
-    def test_create_unique_user(self, create_user_payload, user_methods):
+    def test_create_unique_user(self, user_methods, cleanup_user):
         
         with allure.step('Отправляем запрос для регистрации нового пользователя'):
-            response = user_methods.create_user(create_user_payload)  
+            user_payload = create_user_payload()
+            response = user_methods.create_user(user_payload)  
+            cleanup_user.append(response.json().get("accessToken"))
 
         with allure.step('Проверяем статус код'):
             status_code = response.status_code
@@ -23,16 +26,14 @@ class TestUserCreation:
             assert "user" in response_data, f"Нет объекта user: {response_data}"
         
             user_data = response_data["user"]
-            assert user_data["email"] == create_user_payload["email"], (
-                f"Email не совпадает. Ожидали: {create_user_payload['email']}, "
+            assert user_data["email"] == user_payload["email"], (
+                f"Email не совпадает. Ожидали: {user_payload['email']}, "
                 f"получили: {user_data.get('email')}"
             )
-            assert user_data["name"] == create_user_payload["name"], (
-                f"Name не совпадает. Ожидали: {create_user_payload['name']}, "
+            assert user_data["name"] == user_payload["name"], (
+                f"Name не совпадает. Ожидали: {user_payload['name']}, "
                 f"получили: {user_data.get('name')}"
-            )
-
-            user_methods.delete_user(token=response_data["accessToken"])
+            )        
 
     
     @allure.title("Создать пользователя, который уже зарегистрирован")
@@ -66,9 +67,9 @@ class TestUserCreation:
         ]
     )
     @allure.title("Создать пользователя без заполнения одного из обязательных полей")
-    def test_create_user_without_required_field(self, user_methods, create_user_payload, field_to_remove):
+    def test_create_user_without_required_field(self, user_methods, field_to_remove):
         
-        test_payload = create_user_payload.copy()
+        test_payload = create_user_payload()
         test_payload[field_to_remove] = ""
         
         with allure.step(f'Пытаемся зарегестрировать пользователя без заполнения поля {field_to_remove}'):
